@@ -1,0 +1,128 @@
+# Commit history replayed by `gitcontext.samples.build_sample_repo` to turn examples/sample_repo
+# into a real git repository (deterministic authors and dates).
+#
+# `add` lists files first introduced by a commit (files not listed anywhere are added by the first
+# commit). `change` entries describe edits: `new` must occur in the final file content; the builder
+# reverse-applies later edits to reconstruct earlier versions, so every commit has a real diff.
+- message: "chore: scaffold shopfront service"
+  author: Priya Raman <priya@shopfront.dev>
+  date: "2026-01-08T09:30:00+00:00"
+- message: "feat(auth): add OAuth client and token value objects"
+  body: |
+    OAuthClient wraps the identity provider token endpoint (authorization_code and refresh_token
+    grants). invalid_grant responses raise ReauthRequired. TokenPair keeps the absolute expiry
+    parsed from the JWT exp claim.
+  author: Priya Raman <priya@shopfront.dev>
+  date: "2026-01-12T14:10:00+00:00"
+  add: [shopfront/auth/oauth_client.py, shopfront/auth/tokens.py]
+- message: "feat(auth): add SessionManager that refreshes tokens on expiry"
+  body: |
+    Callers ask the SessionManager for an access token; it refreshes the pair with the stored
+    refresh token when the access token has expired.
+  author: Priya Raman <priya@shopfront.dev>
+  date: "2026-01-15T11:45:00+00:00"
+  add: [shopfront/auth/session.py]
+- message: "feat(billing): invoice generation and proration"
+  author: Marcus Chen <marcus@shopfront.dev>
+  date: "2026-01-20T16:00:00+00:00"
+  add: [shopfront/billing/invoices.py, docs/billing.md]
+- message: "fix(billing): use Decimal and banker's rounding for proration (#118)"
+  body: |
+    prorate() used ROUND_HALF_UP and over-charged one cent on ~0.4% of mid-cycle upgrades.
+    Round to the cent with ROUND_HALF_EVEN instead.
+  author: Marcus Chen <marcus@shopfront.dev>
+  date: "2026-02-11T10:30:00+00:00"
+  change:
+    - path: shopfront/billing/invoices.py
+      old: "from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal"
+      new: "from decimal import ROUND_HALF_EVEN, Decimal"
+    - path: shopfront/billing/invoices.py
+      old: "return raw.quantize(CENT, rounding=ROUND_HALF_UP)"
+      new: "return raw.quantize(CENT, rounding=ROUND_HALF_EVEN)"
+- message: "feat(api): JWT auth middleware with clock-skew leeway"
+  body: |
+    Verify RS256 signature and audience on every non-public route. Expired tokens return 401
+    with WWW-Authenticate invalid_token so clients know to refresh.
+  author: Elena Petrova <elena@shopfront.dev>
+  date: "2026-02-20T09:00:00+00:00"
+  add: [shopfront/api/middleware.py]
+- message: "feat(billing): payment webhooks with HMAC signature verification"
+  body: |
+    verify_signature checks t=<ts>,v1=<hmac> headers with a constant-time compare and rejects
+    timestamps older than 5 minutes to block replays.
+  author: Marcus Chen <marcus@shopfront.dev>
+  date: "2026-02-27T13:20:00+00:00"
+  add: [shopfront/billing/webhooks.py]
+- message: "fix(auth): refresh tokens proactively with skew buffer and single-flight lock (#134)"
+  body: |
+    Follow-up to INC-2026-014. Refresh when the access token is within 60s of expiry (plus up to
+    15s jitter) instead of waiting for a 401, and serialise refreshes per session so concurrent
+    callers do not burn the rotating refresh token and get invalid_grant.
+  author: Priya Raman <priya@shopfront.dev>
+  date: "2026-03-20T16:40:00+00:00"
+  add: [docs/auth.md]
+  change:
+    - path: shopfront/auth/session.py
+      old: "REFRESH_SKEW_SECONDS = 0"
+      new: "REFRESH_SKEW_SECONDS = 60"
+    - path: shopfront/auth/session.py
+      old: "REFRESH_JITTER_SECONDS = 0"
+      new: "REFRESH_JITTER_SECONDS = 15"
+- message: "feat(web): share one in-flight token refresh across concurrent requests"
+  body: |
+    Mirrors the server-side single-flight refresh from #134 in the TypeScript client: requests
+    that hit 401 while a refresh is running await the same promise.
+  author: Sam Okafor <sam@shopfront.dev>
+  date: "2026-03-22T10:05:00+00:00"
+  add: [web/src/apiClient.ts]
+- message: "feat(api): Redis token-bucket rate limiter shared across pods (#141)"
+  body: |
+    Replaces the per-pod fixed-window counter, which let partners send limit x pod-count
+    requests. Atomic Lua script, 600 req/min sustained, burst 50, Retry-After on 429.
+  author: Elena Petrova <elena@shopfront.dev>
+  date: "2026-04-09T15:05:00+00:00"
+  add: [shopfront/api/ratelimit.py, docs/runbooks/rate-limiting.md]
+- message: "fix(billing): make payment webhooks idempotent by event id (#152)"
+  body: |
+    Record each event id with SET NX before side effects so provider retries cannot create
+    duplicate invoices (INC-2026-022).
+  author: Marcus Chen <marcus@shopfront.dev>
+  date: "2026-05-05T12:20:00+00:00"
+  change:
+    - path: shopfront/billing/webhooks.py
+      old: ""
+      new: |2
+                if not self._store.add_if_absent(f"webhook:{event_id}", self.DEDUP_TTL_SECONDS):
+                    return "duplicate"
+- message: "perf(cache): XFetch early expiration to prevent cache stampedes"
+  body: |
+    Hot catalogue keys expired on every worker at once and stampeded Postgres. Readers now
+    recompute slightly early with a probability that rises near expiry (discussion #31).
+  author: Elena Petrova <elena@shopfront.dev>
+  date: "2026-06-05T08:50:00+00:00"
+  add: [shopfront/storage/cache.py]
+- message: "feat(workers): retry decorator with exponential backoff and full jitter"
+  author: Sam Okafor <sam@shopfront.dev>
+  date: "2026-06-20T17:15:00+00:00"
+  add: [shopfront/workers/retry.py]
+- message: "fix(config): validate rate-limit settings at boot (INC-2026-029)"
+  body: |
+    A deploy set SHOPFRONT_RATE_LIMIT_BURST=2 globally and throttled partners. Refuse to start
+    when burst < 10 or burst > per-minute rate.
+  author: Elena Petrova <elena@shopfront.dev>
+  date: "2026-07-20T09:40:00+00:00"
+  change:
+    - path: shopfront/config.py
+      old: ""
+      new: |2
+
+            def validate(self) -> None:
+                """Fail fast on dangerous values. Added after INC-2026-029 (burst set to 2 in prod)."""
+                if self.rate_limit_burst < 10:
+                    raise ValueError("rate_limit_burst must be >= 10")
+                if self.rate_limit_per_minute < self.rate_limit_burst:
+                    raise ValueError("rate_limit_per_minute must be >= rate_limit_burst")
+- message: "docs: export PRs, discussions and postmortems for GitContext"
+  author: Dana Whitfield <dana@shopfront.dev>
+  date: "2026-07-25T11:00:00+00:00"
+  add_glob: [".gitcontext/**/*"]

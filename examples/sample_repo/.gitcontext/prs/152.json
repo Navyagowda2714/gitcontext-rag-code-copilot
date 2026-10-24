@@ -1,0 +1,28 @@
+{
+  "number": 152,
+  "title": "Make payment webhooks idempotent by event id",
+  "author": "marcus-chen",
+  "state": "merged",
+  "created_at": "2026-05-04T10:00:00+00:00",
+  "merged_at": "2026-05-05T12:20:00+00:00",
+  "labels": ["billing", "incident-followup"],
+  "files": ["shopfront/billing/webhooks.py", "shopfront/billing/invoices.py", "docs/billing.md"],
+  "body": "Fixes the duplicate invoices from INC-2026-022.\n\nThe payment provider retries any webhook delivery that is not acknowledged within 10 seconds. During the database slowdown our handler took ~14s, so invoice.upcoming events were delivered twice and both deliveries created an invoice.\n\nChanges:\n- WebhookHandler records the event id with Redis SET NX (7 day TTL) before running side effects and returns 'duplicate' for repeats.\n- Invoices store source_event_id so we can audit which event created them.\n- We acknowledge first and do slow work in a background job (follow-up ticket BILL-311).",
+  "comments": [
+    {
+      "author": "dana-whitfield",
+      "body": "Should the dedup key be the event id or a hash of the payload? Providers sometimes resend with a new id.",
+      "created_at": "2026-05-04T13:00:00+00:00"
+    },
+    {
+      "author": "marcus-chen",
+      "body": "Their docs guarantee the same event id across retries, so event id it is. A payload hash would also dedupe legitimately identical events.",
+      "created_at": "2026-05-04T13:40:00+00:00"
+    },
+    {
+      "author": "priya-raman",
+      "body": "7 days TTL matches the provider's maximum retry window (3 days) with margin. LGTM.",
+      "created_at": "2026-05-05T09:10:00+00:00"
+    }
+  ]
+}

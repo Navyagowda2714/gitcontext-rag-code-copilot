@@ -1,0 +1,21 @@
+number: 27
+title: Should the storefront keep access tokens in httpOnly cookies?
+author: sam-okafor
+category: Architecture
+created_at: 2026-04-14T10:00:00+00:00
+body: |
+  Today the web client keeps the access and refresh tokens in memory and localStorage. Security
+  review flagged localStorage as readable by any XSS payload. Proposal: move the refresh token to
+  an httpOnly, Secure, SameSite=Strict cookie set by a small backend-for-frontend endpoint, and keep
+  only the short-lived access token in memory.
+comments:
+  - author: priya-raman
+    body: >-
+      +1. The refresh token is the long-lived secret; the access token expires in 15 minutes.
+      Keeping the refresh token out of JavaScript entirely removes the worst XSS impact.
+  - author: elena-petrova
+    body: Cookies mean we need CSRF protection on the refresh endpoint. SameSite=Strict covers most of it.
+  - author: sam-okafor
+    body: >-
+      Decision: adopt the httpOnly refresh-token cookie for the storefront in Q3. Partner API
+      clients keep using bearer tokens via SessionManager, nothing changes for them.

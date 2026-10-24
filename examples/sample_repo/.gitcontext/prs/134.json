@@ -1,0 +1,40 @@
+{
+  "number": 134,
+  "title": "Refresh access tokens proactively with skew buffer and single-flight lock",
+  "author": "priya-raman",
+  "state": "merged",
+  "created_at": "2026-03-18T09:12:00+00:00",
+  "merged_at": "2026-03-20T16:40:00+00:00",
+  "labels": ["auth", "reliability", "incident-followup"],
+  "files": ["shopfront/auth/session.py", "shopfront/auth/tokens.py", "docs/auth.md"],
+  "body": "Follow-up to INC-2026-014 (token refresh storm).\n\n## Problem\nSessionManager only refreshed the access token after the API returned 401. When a popular token expired, every in-flight request got a 401 at once and each one called the token endpoint. Because the identity provider rotates refresh tokens, the first refresh succeeded and every concurrent refresh presented an already-used refresh token, got invalid_grant, and the user was logged out.\n\n## Change\n- Refresh proactively when the access token is within REFRESH_SKEW_SECONDS (60s) of expiry, plus 0-15s of random jitter per process so workers do not refresh in lockstep.\n- Single-flight: refreshes are serialised with a threading.Lock and the expiry is re-checked after acquiring it (double-checked locking), so concurrent callers reuse one refresh.\n- invalid_grant is never retried; transient network errors are retried 3 times with exponential backoff.\n- Docs: updated docs/auth.md with the token lifecycle.\n\n## Testing\nLoad test with 200 concurrent callers on one session: token endpoint calls dropped from 200 to 1 per expiry, zero invalid_grant errors.",
+  "comments": [
+    {
+      "author": "marcus-chen",
+      "body": "Why 60 seconds for the skew? Feels arbitrary.",
+      "created_at": "2026-03-18T11:02:00+00:00",
+      "path": "shopfront/auth/session.py",
+      "line": 24
+    },
+    {
+      "author": "priya-raman",
+      "body": "Measured it: worst clock skew between pods during the incident was 23s and p99 token endpoint latency is about 9s. 60s covers both with headroom, and access tokens live 15 minutes so refreshing a minute early costs nothing.",
+      "created_at": "2026-03-18T11:30:00+00:00"
+    },
+    {
+      "author": "elena-petrova",
+      "body": "A process-local lock only de-duplicates refreshes within one pod. Do we need a distributed lock in Redis?",
+      "created_at": "2026-03-19T08:15:00+00:00"
+    },
+    {
+      "author": "priya-raman",
+      "body": "Each SessionManager owns its own token pair and sessions are pinned to a pod, so a local lock is enough. A Redis lock would add a network hop to every refresh. If we ever share sessions across pods we will revisit.",
+      "created_at": "2026-03-19T09:01:00+00:00"
+    },
+    {
+      "author": "sam-okafor",
+      "body": "I'll mirror this in the web client: one shared in-flight refresh promise in apiClient.ts.",
+      "created_at": "2026-03-19T14:22:00+00:00"
+    }
+  ]
+}

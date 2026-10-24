@@ -1,0 +1,17 @@
+number: 31
+title: Cache stampede on the product catalogue
+author: elena-petrova
+category: Performance
+created_at: 2026-06-02T09:00:00+00:00
+body: |
+  Every 60 seconds the catalogue cache key expires on all workers at the same time and ~300
+  requests hit Postgres simultaneously; p99 latency jumps from 80ms to 1.9s for a few seconds.
+  Options: (1) a distributed lock around recomputation, (2) serve stale while one worker refreshes,
+  (3) probabilistic early expiration (XFetch).
+comments:
+  - author: marcus-chen
+    body: A lock adds a Redis round trip to every miss and makes the lock holder a single point of slowness.
+  - author: elena-petrova
+    body: >-
+      Going with XFetch in TTLCache: each reader recomputes slightly early with a probability that
+      rises near expiry, scaled by how long the computation took. No coordination needed.

@@ -1,0 +1,33 @@
+number: 141
+title: Move rate limiting to a Redis token bucket shared by all pods
+author: elena-petrova
+state: merged
+created_at: 2026-04-07T08:30:00+00:00
+merged_at: 2026-04-09T15:05:00+00:00
+labels: [platform, rate-limiting]
+files:
+  - shopfront/api/ratelimit.py
+  - shopfront/api/middleware.py
+  - shopfront/config.py
+body: |
+  The in-process fixed-window limiter counted requests per pod, so a partner limited to 600
+  requests/minute could actually send 600 x 12 pods. It also allowed bursts of 2x the limit at
+  window boundaries.
+
+  This replaces it with a token bucket stored in Redis. The refill and decrement run atomically in
+  a Lua script, so all pods share one budget per API key. Defaults: 600 requests/minute sustained
+  with a burst of 50. Rejected requests get 429 with a Retry-After header computed from the refill
+  rate.
+comments:
+  - author: marcus-chen
+    body: What happens if Redis is down? Do we fail open or closed?
+  - author: elena-petrova
+    body: >-
+      Fail open with a local fallback limiter at 2x the configured rate, and alert. Rejecting all
+      partner traffic because of a cache outage would be worse than briefly over-serving.
+  - author: priya-raman
+    body: Could we use a sliding-window log instead? It is more exact.
+  - author: elena-petrova
+    body: >-
+      Sliding log needs one sorted-set entry per request, which is a lot of memory at our volume.
+      Token bucket is O(1) per key and lets partners burst a bit, which they asked for.
