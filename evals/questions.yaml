@@ -1,0 +1,98 @@
+# Retrieval + answer evaluation set for the bundled sample repository.
+#
+# gold: sources a good answer should draw on. Exact doc ids (code:<path>, doc:<path>, pr:<n>,
+# discussion:<n>, incident:<id>) or `commit~<substring>` to match a commit by its subject, because
+# commit shas depend on the git version that replays the history.
+# Unanswerable questions (gold: []) test refusal: the index has no evidence for them.
+questions:
+  - id: q01
+    question: How does token refresh work?
+    gold: [code:shopfront/auth/session.py, pr:134, incident:INC-2026-014, doc:docs/auth.md]
+  - id: q02
+    question: Why do we refresh access tokens 60 seconds before they expire?
+    gold: [pr:134, code:shopfront/auth/session.py, incident:INC-2026-014]
+  - id: q03
+    question: What caused the token refresh storm that logged users out?
+    gold: [incident:INC-2026-014, pr:134]
+  - id: q04
+    question: What happens when the identity provider returns invalid_grant?
+    gold: [code:shopfront/auth/oauth_client.py, code:shopfront/auth/session.py, doc:docs/auth.md]
+  - id: q05
+    question: Why didn't we use a distributed Redis lock for token refresh?
+    gold: [pr:134]
+  - id: q06
+    question: How does the web client avoid running several token refreshes at once?
+    gold: [code:web/src/apiClient.ts, "commit~share one in-flight token refresh"]
+  - id: q07
+    question: Who changed the session manager to refresh tokens proactively, and when?
+    gold: ["commit~refresh tokens proactively", pr:134]
+  - id: q08
+    question: How is the expiry time read from a JWT access token?
+    gold: [code:shopfront/auth/tokens.py]
+  - id: q09
+    question: How does the API middleware reject expired bearer tokens?
+    gold: [code:shopfront/api/middleware.py, doc:docs/auth.md]
+  - id: q10
+    question: How does rate limiting work across multiple API pods?
+    gold: [code:shopfront/api/ratelimit.py, pr:141]
+  - id: q11
+    question: What does the rate limiter do if Redis is down?
+    gold: [pr:141]
+  - id: q12
+    question: Why were partners throttled with 429 errors in July?
+    gold: [incident:INC-2026-029, "commit~validate rate-limit settings"]
+  - id: q13
+    question: What are the default rate limit and burst values?
+    gold: [code:shopfront/config.py, doc:docs/runbooks/rate-limiting.md, pr:141]
+  - id: q14
+    question: What should on-call do when a partner reports rate limit exceeded errors?
+    gold: [doc:docs/runbooks/rate-limiting.md]
+  - id: q15
+    question: Why did customers receive duplicate invoices?
+    gold: [incident:INC-2026-022, pr:152]
+  - id: q16
+    question: How are payment webhooks made idempotent?
+    gold: [code:shopfront/billing/webhooks.py, pr:152, doc:docs/billing.md]
+  - id: q17
+    question: How is the webhook signature verified?
+    gold: [code:shopfront/billing/webhooks.py, doc:docs/billing.md]
+  - id: q18
+    question: Why do we deduplicate webhooks by event id instead of a payload hash?
+    gold: [pr:152]
+  - id: q19
+    question: How are prorated amounts rounded?
+    gold: [code:shopfront/billing/invoices.py, pr:118, doc:docs/billing.md]
+  - id: q20
+    question: Why were some customers overcharged by one cent?
+    gold: [pr:118, "commit~banker's rounding"]
+  - id: q21
+    question: How does the cache prevent stampedes when hot keys expire?
+    gold: [code:shopfront/storage/cache.py, discussion:31]
+  - id: q22
+    question: Should the storefront keep refresh tokens in localStorage?
+    gold: [discussion:27]
+  - id: q23
+    question: How do background workers retry failed calls?
+    gold: [code:shopfront/workers/retry.py]
+  - id: q24
+    question: How do I roll back a bad production deploy?
+    gold: [doc:docs/deployment.md, doc:docs/runbooks/rate-limiting.md]
+  - id: q25
+    question: What does Settings.validate check at startup and why was it added?
+    gold: [code:shopfront/config.py, incident:INC-2026-029, "commit~validate rate-limit settings"]
+  # --- unanswerable: should be refused ---
+  - id: u01
+    question: How do we configure Kubernetes horizontal pod autoscaling?
+    gold: []
+  - id: u02
+    question: What is the GraphQL schema for product search?
+    gold: []
+  - id: u03
+    question: How are push notifications delivered to the mobile app?
+    gold: []
+  - id: u04
+    question: Which machine learning model ranks product recommendations?
+    gold: []
+  - id: u05
+    question: How do we rotate the Postgres encryption keys?
+    gold: []
