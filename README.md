@@ -6,7 +6,7 @@ incident postmortems, with every sentence linked back to the source it came from
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![CI](https://github.com/Navyagowda2714/gitcontext/actions/workflows/ci.yml/badge.svg)](.github/workflows/ci.yml)
+[![CI](https://github.com/Navyagowda2714/gitcontext-rag-code-copilot/actions/workflows/ci.yml/badge.svg)](.github/workflows/ci.yml)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 ## Why this exists
@@ -86,7 +86,7 @@ Deep dive, sequence diagrams, data model and ADRs: [docs/ARCHITECTURE.md](docs/A
 ## Quickstart
 
 ```bash
-git clone https://github.com/Navyagowda2714/gitcontext && cd gitcontext
+git clone https://github.com/Navyagowda2714/gitcontext-rag-code-copilot && cd gitcontext-rag-code-copilot
 python -m venv .venv && source .venv/bin/activate
 make install          # pip install -e ".[dev]"
 make demo             # builds the sample repo with real git history, indexes it, asks 4 questions
